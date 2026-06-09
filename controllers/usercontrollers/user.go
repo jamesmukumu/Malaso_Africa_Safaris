@@ -12,8 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudinary/cloudinary-go/v2"
-	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
+
 	jwt "github.com/golang-jwt/jwt/v5"
 
 	// "fmt"
@@ -187,22 +186,9 @@ func CreateUser(res http.ResponseWriter, req *http.Request) {
 	godotenv.Load()
 
 
-	cloud, errCloud := cloudinary.NewFromParams(
-		os.Getenv("CloudinaryName"),
-		os.Getenv("CloudinarySecret"),
-		os.Getenv("CloudinaryPublic"),
-	)
-	if errCloud != nil {
-		log.Fatal(errCloud.Error())
-		return
-	}
-	ctx := context.TODO()
-	file, _, _ := req.FormFile("orgPhoto")
+	
 
-	result, errUpload := cloud.Upload.Upload(ctx, file, uploader.UploadParams{})
-	if errUpload != nil {
-		panic(errUpload.Error())
-	}
+	
 
 	hashedPassword, errBcrypt := bcrypt.GenerateFromPassword([]byte(req.FormValue("password")), 13)
 	if errBcrypt != nil {
@@ -216,8 +202,8 @@ func CreateUser(res http.ResponseWriter, req *http.Request) {
 		Role:             "normal user",
 		Org:              true,
 		Verified:         false,
-		OrgBanner:        result.SecureURL,
-		OrgPrimaryColors: req.FormValue("orgColor"),
+		OrgBanner:        "",
+		OrgPrimaryColors: "",
 	}
 	op := db.Db_Connection.Create(&real_user)
 
