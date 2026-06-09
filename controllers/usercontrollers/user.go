@@ -181,9 +181,9 @@ var responseMap = make(map[string]interface{}, 0)
 
 // register user
 func CreateUser(res http.ResponseWriter, req *http.Request) {
-	time.Sleep(time.Nanosecond * 3)
-	user_id := <-helpers.UserIDChannel
-    fmt.Println(user_id)
+	// time.Sleep(time.Nanosecond * 3)
+	// user_id := <-helpers.UserIDChannel
+    // fmt.Println(user_id)
 	godotenv.Load()
 
 
@@ -247,6 +247,8 @@ func CreateUser(res http.ResponseWriter, req *http.Request) {
 	}
 
 }
+
+
 func sendAlertEmail(emailAddress string, name string) {
 	env.Load()
 	m := mail.NewMessage()
