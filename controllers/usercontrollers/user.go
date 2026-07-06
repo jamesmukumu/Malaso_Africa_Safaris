@@ -42,6 +42,9 @@ type LoginCredentials struct {
 	Password   string `json:"password"`
 	Credential string `json:"credential"`
 }
+type ResetLink struct {
+ResetUrl string
+}
 
 var someEmailTemplate string = `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"  
@@ -472,7 +475,6 @@ db.Db_Connection.Table("resets").Create(&reset)
 ResetEmailLink(reset_id,email)
 json.NewEncoder(res).Encode(map[string]any{
 "message":"Reset Ready",
-"reset_id":reset_id,
 "success":true,
 })
 
@@ -524,8 +526,11 @@ return
 }
 app_url := os.Getenv("APP_URL")
 resetLink := app_url + "/complete/reset-password/"+resetid
+payloadReset := ResetLink{
+ResetUrl: resetLink,
+}
 var body bytes.Buffer
-errReset := tmpl.Execute(&body,resetLink)
+errReset := tmpl.Execute(&body,payloadReset)
 if errReset != nil {
 log.Fatal(errReset.Error())
 return
