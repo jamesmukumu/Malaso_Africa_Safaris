@@ -290,7 +290,7 @@ func PropagateEmailsBulk(res http.ResponseWriter, req *http.Request) {
 
 		for _, user := range usersMap {
 			params := &resend.SendEmailRequest{
-				From: fmt.Sprintf("PJ Safaris <%s>", os.Getenv("MAILADDRESS")),
+				From: fmt.Sprintf("Malaso Africa Safaris <%s>", os.Getenv("MAILADDRESS")),
 				To: []string{
 					user["email"].(string),
 				},
