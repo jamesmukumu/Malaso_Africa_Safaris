@@ -69,11 +69,14 @@ router.PathPrefix("/files/").
 	})
 	
 	var actualHandler = corsHandler.Handler(router)
+	//admin routes
 	router.HandleFunc("/api/create/new/user", usercontrollers.CreateUser).Methods("POST")
 	router.HandleFunc("/api/login/user", usercontrollers.Login).Methods("POST")
     router.HandleFunc("/api/fetch/admins",helpers.AdminHelper(usercontrollers.FetchAdmins)).Methods("GET")
     router.HandleFunc("/api/edit/user",helpers.AdminHelper(usercontrollers.EditUser)).Methods("POST")
     router.HandleFunc("/api/get/user/profile",helpers.Helper(usercontrollers.GetUserProfile)).Methods("GET")
+	router.HandleFunc("/api/request/reset",usercontrollers.RequestPasswordReset).Methods("POST")
+    router.HandleFunc("/api/complete/reset/{reset_id}",usercontrollers.CompletePasswordReset).Methods("POST")
 
 
 	// awards api`s`

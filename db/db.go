@@ -19,6 +19,7 @@ import (
 	"jamesmukumu/maasaimaratripsportal/models/packages"
 	"jamesmukumu/maasaimaratripsportal/models/payments"
 	"jamesmukumu/maasaimaratripsportal/models/rates"
+	"jamesmukumu/maasaimaratripsportal/models/resets"
 	"jamesmukumu/maasaimaratripsportal/models/rooms"
 	"jamesmukumu/maasaimaratripsportal/models/sitemaps"
 	"jamesmukumu/maasaimaratripsportal/models/users"
@@ -56,6 +57,8 @@ var sitemap sitemaps.SiteMap
 var customPackages customizedpackages.CustomizedPackage
 var Rates rates.Rates
 var Log logins.Logins
+var reset resets.Resets
+
 func DBConnection(){
 godotenv.Load()
 
@@ -68,6 +71,6 @@ godotenv.Load()
 	}
    Db_Connection = db;
    fmt.Println("Connected to DB")    
-   Db_Connection.AutoMigrate(&user,&Log,&award,&wallet,&deposit,&Dest,&packageCategory,&Package,&hotel,&room,&blogsCategory,&bb,&enquiry,&attraction,&emailTemplates,&newsletter,&bulks,&adventureCategory,&adventure,&initializedPayments,&completedPayments,&draft,&sitemap,&customPackages,&Rates)       
+   Db_Connection.AutoMigrate(&user,&Log,&award,&wallet,&deposit,&Dest,&packageCategory,&Package,&hotel,&room,&blogsCategory,&bb,&enquiry,&attraction,&emailTemplates,&newsletter,&bulks,&adventureCategory,&adventure,&initializedPayments,&completedPayments,&draft,&sitemap,&customPackages,&Rates,&reset)       
  
 }  

@@ -464,8 +464,13 @@ json.NewEncoder(res).Encode(map[string]any{
 "data":adeventures,
 "message":"Adventures Found",
 })
-}else if op.RowsAffected == 0 && op.Error != nil {
-http.Error(res,"Something went wrong",500)
+}else if op.RowsAffected == 0  {
+json.NewEncoder(res).Encode(map[string]any{
+"data":adeventures,
+"message":"Adventures Not Found",
+})
+}else if op.Error != nil {
+http.Error(res,"Something Went Wrong",500)
 }
 }
 

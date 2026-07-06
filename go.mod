@@ -29,6 +29,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/redis/go-redis/v9 v9.16.0 // indirect
+	github.com/resend/resend-go/v2 v2.28.0 // indirect
 	github.com/robfig/cron/v3 v3.0.0 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	golang.org/x/crypto v0.42.0 // indirect

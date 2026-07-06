@@ -2,7 +2,7 @@ package emailcontroller
 
 import (
 	"bytes"
-	"crypto/tls"
+	
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -13,6 +13,7 @@ import (
 	"jamesmukumu/maasaimaratripsportal/models/email"
 	"log"
 	"strconv"
+	"encoding/base64"
 
 	"net/http"
 	"os"
@@ -20,7 +21,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
-	"gopkg.in/gomail.v2"
+	// "gopkg.in/gomail.v2"
+	"github.com/resend/resend-go/v2"
 )
 
 type EmailData struct {
@@ -73,20 +75,6 @@ func EditEmailTemplate(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "Email template not found", http.StatusNotFound)
 		return
 	}
-
-	// 2. Check if title already exists for another record
-	// var count int64
-	// db.Db_Connection.
-	// 	Model(&email.EmailTemplates{}).
-	// 	Where("title = ? AND id <> ?", title, id).
-	// 	Count(&count)
-
-	// if count > 0 {
-	// 	http.Error(res, "Email template title already exists", http.StatusConflict)
-	// 	return
-	// }
-
-	// 3. Update the existing template
 	err := db.Db_Connection.
 		Model(&email.EmailTemplates{}).
 		Where("id = ?", id).
@@ -134,17 +122,21 @@ func SaveEmailNewsletter(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+
+
+
+
+
 func SendEmail(res http.ResponseWriter, req *http.Request) {
 	godotenv.Load()
 
-	// Parse template
+	// Parse HTML template
 	tmpl, err := template.ParseFiles("templates/mail.html")
 	if err != nil {
-		http.Error(res, err.Error(), 500)
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Prepare email data
 	emailData := EmailData{
 		Title: req.FormValue("title"),
 		Body:  template.HTML(req.FormValue("body")),
@@ -152,80 +144,71 @@ func SendEmail(res http.ResponseWriter, req *http.Request) {
 
 	var body bytes.Buffer
 	if err := tmpl.Execute(&body, &emailData); err != nil {
-		http.Error(res, err.Error(), 500)
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Parse multipart form (IMPORTANT for multiple files)
-	err = req.ParseMultipartForm(20 << 20) // 20MB limit
-	if err != nil {
-		http.Error(res, err.Error(), 500)
+	// Parse multipart form (20MB max)
+	if err := req.ParseMultipartForm(20 << 20); err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	os.MkdirAll("attachments/files", os.ModePerm)
+	// Read uploaded attachments into memory
+	var attachments []*resend.Attachment
 
-	// Slice to hold paths of saved files
-	var attachmentPaths []string
-
-	// Retrieve multiple files
 	files := req.MultipartForm.File["attachment"]
 
 	for _, fileHeader := range files {
 		file, err := fileHeader.Open()
 		if err != nil {
-			http.Error(res, err.Error(), 500)
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer file.Close()
 
-		// Save file to disk
-		savePath := "attachments/files/" + fileHeader.Filename
+		data, err := io.ReadAll(file)
+		file.Close()
 
-		dst, err := os.Create(savePath)
 		if err != nil {
-			http.Error(res, err.Error(), 500)
-			return
-		}
-		defer dst.Close()
-
-		_, err = io.Copy(dst, file)
-		if err != nil {
-			http.Error(res, err.Error(), 500)
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		attachmentPaths = append(attachmentPaths, savePath)
+		attachments = append(attachments, &resend.Attachment{
+			Filename: fileHeader.Filename,
+			Content:  []byte(base64.StdEncoding.EncodeToString(data)),
+		})
 	}
 
-	// SEND EMAIL
-	m := gomail.NewMessage()
+	// Create Resend client
+	client := resend.NewClient(os.Getenv("RESEND_API_KEY"))
 
-	m.SetHeader("From", fmt.Sprintf("PJ Safaris <%s>", os.Getenv("MAILADDRESS")))
-	m.SetHeader("To", req.FormValue("recepient"))
-	m.SetHeader("Subject", req.FormValue("subject"))
-	m.SetBody("text/html", body.String())
-
-	// Attach all files
-	for _, p := range attachmentPaths {
-		m.Attach(p)
+	params := &resend.SendEmailRequest{
+		From: fmt.Sprintf("Malaso Africa Safaris <%s>", os.Getenv("MAILADDRESS")),
+		To: []string{
+			req.FormValue("recepient"),
+		},
+		Subject:     req.FormValue("subject"),
+		Html:        body.String(),
+		Attachments: attachments,
 	}
 
-	dialer := gomail.NewDialer("mail.privateemail.com", 465,
-		os.Getenv("MAILADDRESS"),
-		os.Getenv("MAILPASSWORD"),
-	)
-dialer.SSL = true
-
-	if err := dialer.DialAndSend(m); err != nil {
-		http.Error(res, err.Error(), 500)
+	email, err := client.Emails.Send(params)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(res).Encode(map[string]string{
-		"message": "Email Delivered",
+	res.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(res).Encode(map[string]any{
+		"message":  "Email Delivered",
+		"email_id": email.Id,
 	})
 }
+
+
+
+
 
 func SaveBulkEmail(res http.ResponseWriter, req *http.Request) {
 	var bulkEmail bulkmails.BulkMails
@@ -260,50 +243,68 @@ func FetchEmailBulks(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+
 func PropagateEmailsBulk(res http.ResponseWriter, req *http.Request) {
 	godotenv.Load()
+
 	time.Sleep(time.Nanosecond * 3)
+
 	user_id := <-helpers.UserIDChannel
 	fmt.Println(user_id)
+
 	var usersMap []map[string]any
+
 	t := mux.Vars(req)["t"]
+
 	id, err := strconv.Atoi(req.URL.Query().Get("id"))
 	if err != nil {
 		log.Fatal(err.Error())
 		return
 	}
+
 	json.Unmarshal([]byte(req.FormValue("recepients")), &usersMap)
 
 	if t == "email_templates" {
 		var matchingEmail email.EmailTemplates
 		db.Db_Connection.Where("id=?", id).Find(&matchingEmail)
+
 		tmpl, err := template.ParseFiles("templates/mail.html")
 		if err != nil {
-			http.Error(res, err.Error(), 500)
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
 		emailData := EmailData{
 			Title: matchingEmail.Title,
 			Body:  template.HTML(matchingEmail.Body),
 		}
+
 		var body bytes.Buffer
 		if err := tmpl.Execute(&body, &emailData); err != nil {
-			http.Error(res, err.Error(), 500)
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		m := gomail.NewMessage()
+
+		// Create Resend client once
+		client := resend.NewClient(os.Getenv("RESEND_API_KEY"))
+
 		for _, user := range usersMap {
-			m.SetHeader("From", fmt.Sprintf("PJ Safaris <%s>", os.Getenv("MAILADDRESS")))
-			m.SetHeader("To", user["email"].(string))
-			m.SetHeader("Subject", matchingEmail.Subject)
-			m.SetBody("text/html", body.String())
-			dialer := gomail.NewDialer("mail.privateemail.com", 587, os.Getenv("MAILADDRESS"), os.Getenv("MAILPASSWORD"))
-			dialer.TLSConfig = &tls.Config{InsecureSkipVerify: false, ServerName: "mail.privateemail.com"}
-			if err := dialer.DialAndSend(m); err != nil {
-				http.Error(res, err.Error(), 500)
+			params := &resend.SendEmailRequest{
+				From: fmt.Sprintf("PJ Safaris <%s>", os.Getenv("MAILADDRESS")),
+				To: []string{
+					user["email"].(string),
+				},
+				Subject: matchingEmail.Subject,
+				Html:    body.String(),
+			}
+
+			_, err := client.Emails.Send(params)
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusInternalServerError)
 				continue
 			}
 		}
+
 		json.NewEncoder(res).Encode(map[string]string{
 			"message": "Emails Sent",
 		})
@@ -311,9 +312,7 @@ func PropagateEmailsBulk(res http.ResponseWriter, req *http.Request) {
 	} else {
 
 	}
-
 }
-
 
 
 func FetchTemplates(res http.ResponseWriter,req *http.Request){
